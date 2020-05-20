@@ -4,8 +4,8 @@ from confluent_kafka import Producer
 import fastavro
 import io
 import importlib
+import datetime
 
-import json
 
 
 class KafkaProducer(GenericProducer):
@@ -102,6 +102,15 @@ class KafkaProducer(GenericProducer):
 
         self.schema = fastavro.parse_schema(self.schema)
 
+        self.metrics = {
+            "timestamp_sent": None,
+            "timestamp_received": None,
+            "candid": None,
+            "source": None
+        }
+
+        self.previous_metrics = []
+
         self.dynamic_topic = False
         if self.config.get("TOPIC"):
             self.logger.info(f'Producing to {self.config["TOPIC"]}')
@@ -122,10 +131,14 @@ class KafkaProducer(GenericProducer):
     def produce(self, message=None):
         """Produce Message to a topic.
         """
+        self.metrics["timestamp_sent"] = datetime.datetime.now(datetime.timezone.utc)
+        if "candid" in message:
+            self.metrics["candid"] = message["candid"]
+        message["metrics"] = self.previous_metrics
+        message["metrics"].append(self.metrics)
         out = io.BytesIO()
         fastavro.writer(out, self.schema, [message])
         message = out.getvalue()
-        # message = json.dumps(message)
         for topic in self.topic:
             try:
                 self.producer.produce(topic, message)
@@ -134,7 +147,6 @@ class KafkaProducer(GenericProducer):
                 self.logger.info("Calling poll to empty queue and producing again")
                 self.producer.poll(1)
                 self.producer.produce(topic, message)
-
 
     def __del__(self):
         self.logger.info("Waiting to produce last messages")

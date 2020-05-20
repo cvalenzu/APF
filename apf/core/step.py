@@ -38,6 +38,7 @@ class GenericStep():
         self.commit = self.config.get("COMMIT", True)
         self.metrics = {}
         self.elastic_search = None
+        self.producer = None
 
         if "ES_CONFIG" in config:
             logging.getLogger("elasticsearch").setLevel(logging.ERROR)
@@ -105,18 +106,50 @@ class GenericStep():
         """
         pass
 
+    def init_producer(self, producer_class):
+        producer = producer_class(self.config["PRODUCER_CONFIG"])
+        producer.schema["fields"].append({
+            "name": "metrics",
+            "type": {
+                "type": "array",
+                "items": {
+                    "name": "metrics_record",
+                    "type": "record",
+                    "fields": [
+                        {
+                            "name": "timestamp_received",
+                            "type": {'type': 'long', 'logicalType': 'timestamp-millis'}
+                        },
+                        {
+                            "name": "timestamp_sent",
+                            "type": {'type': 'long', 'logicalType': 'timestamp-millis'}
+                        },
+                        {
+                            "name": "candid",
+                            "type": "string"
+                        },
+                        {
+                            "name": "source",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        })
+        producer.metrics["source"] = self.__class__.__name__.lower()
+        return producer
+
     def start(self):
         """Start running the step.
         """
         for self.message in self.consumer.consume():
-            self.metrics["timestamp_received"] = datetime.datetime.now(
-                datetime.timezone.utc)
+            if self.producer:
+                self.producer.metrics["timestamp_received"] = datetime.datetime.now(
+                    datetime.timezone.utc)
+                if "metrics" in self.message:
+                    self.producer.previous_metrics = self.message["metrics"]
+                else:
+                    self.producer.previous_metrics = []
             self.execute(self.message)
-            self.metrics["timestamp_sent"] = datetime.datetime.now(
-                datetime.timezone.utc)
             if self.commit:
                 self.consumer.commit()
-            if "candid" in self.message:
-                self.metrics["candid"] = str(self.message["candid"])
-                if str(self.message["candid"]).endswith('0'):
-                    self.send_metrics(**self.metrics)
