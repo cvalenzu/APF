@@ -21,6 +21,9 @@ class AVROFileConsumer(GenericConsumer):
         files = glob.glob(os.path.join(self.config["DIRECTORY_PATH"],"*.avro"))
         files.sort()
 
+        if len(files) == 0:
+            raise Exception(f"No avro files found at {self.config['DIRECTORY_PATH']}")
+
         for file in files:
             self.logger.debug(f"Reading File: {file}")
             with open(file,"rb") as f:
