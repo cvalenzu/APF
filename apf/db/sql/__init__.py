@@ -137,7 +137,7 @@ def bulk_insert(objects, model, session):
     session.bulk_insert_mappings(model, objects)
 
 
-def query(session, model, page=None, page_size=None, total=None, *params):
+def query(session, model, page=None, page_size=None, total=None, sort_by=None, sort_desc=None, *params):
     offset = None
     limit = None
     if page and page_size:
@@ -146,9 +146,39 @@ def query(session, model, page=None, page_size=None, total=None, *params):
     sql_query = session.query(model).filter(*params)
     if not total:
         total = sql_query.order_by(None).count()
+    if sort_by is not None:
+        if sort_desc:
+            sql_query.order_by(sort_by.desc())
+        else:
+            sql_query.order_by(sort_by.asc())
     results = sql_query[offset:limit]
     return {
         "total": total,
         "results": results
     }
-        
+
+
+def multiple_query(session, model1=None, model2=None, model3=None, page=None, page_size=None, total=None,
+                   sort_by=None, sort_desc=None, *params):
+    offset = None
+    limit = None
+    if page and page_size:
+        offset = page_size * (page - 1)
+        limit = page_size + offset
+    if model3 is None:
+        sql_query = session.query(model1,model2).filter(*params)
+    else:
+        sql_query = session.query(model1,model2,model3).filter(*params)
+    if not total:
+        total = sql_query.order_by(None).count()
+    if sort_by is not None:
+        if sort_desc:
+            sql_query.order_by(sort_by.desc())
+        else:
+            sql_query.order_by(sort_by.asc())
+    results = sql_query[offset:limit]
+    return {
+        "total": total,
+        "results": results
+    }
+
