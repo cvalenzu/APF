@@ -148,9 +148,9 @@ def query(session, model, page=None, page_size=None, total=None, sort_by=None, s
         total = sql_query.order_by(None).count()
     if sort_by is not None:
         if sort_desc:
-            sql_query.order_by(sort_by.desc())
+            sql_query.order_by(sort_by)
         else:
-            sql_query.order_by(sort_by.asc())
+            sql_query.order_by(sort_by)
     results = sql_query[offset:limit]
     return {
         "total": total,
@@ -173,9 +173,9 @@ def multiple_query(session, model1=None, model2=None, model3=None, page=None, pa
         total = sql_query.order_by(None).count()
     if sort_by is not None:
         if sort_desc:
-            sql_query.order_by(sort_by.desc())
+            sql_query = sql_query.order_by(sort_by.desc())
         else:
-            sql_query.order_by(sort_by.asc())
+            sql_query = sql_query.order_by(sort_by.asc())
     results = sql_query[offset:limit]
     return {
         "total": total,
